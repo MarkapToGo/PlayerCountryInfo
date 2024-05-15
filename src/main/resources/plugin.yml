@@ -1,0 +1,4 @@
+name: PlayerCountryInfo
+version: '${project.version}'
+main: de.stylelabor.dev.playercountryinfo.PlayerCountryInfo
+api-version: '1.20'
