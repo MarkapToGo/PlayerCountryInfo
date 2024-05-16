@@ -1,0 +1,3 @@
+chatFormat: "%prefix%%name% [%countryCode%] » %message%"
+tabFormat: "%prefix%%name% [%countryCode%]"
+defaultCountryCode: "LOCAL" #for localhost-ip

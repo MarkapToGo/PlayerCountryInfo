@@ -1,6 +1,10 @@
 package de.stylelabor.dev.playercountryinfo;
 
+import net.luckperms.api.LuckPerms;
+import net.luckperms.api.LuckPermsProvider;
+import net.luckperms.api.model.user.User;
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -28,6 +32,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
     @Override
     public void onEnable() {
         Bukkit.getPluginManager().registerEvents(this, this);
+        saveDefaultConfig();
     }
 
     @EventHandler
@@ -36,7 +41,12 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         String countryCode = getCountryCode(player);
         if (countryCode != null) {
             playerCountryCodes.put(player.getName(), countryCode);
-            player.setPlayerListName(player.getName() + " (" + countryCode + ")");
+            String prefix = getPrefix(player);
+            String format = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%]");
+            format = format.replace("%prefix%", prefix.isEmpty() ? "" : prefix + " ")
+                    .replace("%name%", player.getName())
+                    .replace("%countryCode%", countryCode);
+            player.setPlayerListName(format);
         }
     }
 
@@ -45,7 +55,12 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         Player player = event.getPlayer();
         String countryCode = playerCountryCodes.get(player.getName());
         if (countryCode != null) {
-            String format = String.format("<%s (%s)> %s", player.getName(), countryCode, event.getMessage());
+            String prefix = getPrefix(player);
+            String format = getConfig().getString("chatFormat", "%prefix%%name% %countryCode% -> %message%");
+            format = format.replace("%prefix%", prefix.isEmpty() ? "" : prefix + " ")
+                    .replace("%name%", player.getName())
+                    .replace("%countryCode%", countryCode)
+                    .replace("%message%", event.getMessage());
             event.setFormat(format);
         }
     }
@@ -56,7 +71,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
 
         // If the IP address is a loopback address, return a default country code
         if (ip.equals("127.0.0.1")) {
-            return "LOCAL"; // Replace "US" with your desired default country code
+            return getConfig().getString("defaultCountryCode", "LOCAL");
         }
 
         try {
@@ -88,4 +103,15 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         return null;
     }
 
+    private String getPrefix(Player player) {
+        LuckPerms api = LuckPermsProvider.get();
+        User user = api.getUserManager().getUser(player.getUniqueId());
+        if (user != null) {
+            String prefix = user.getCachedData().getMetaData().getPrefix();
+            if (prefix != null) {
+                return ChatColor.translateAlternateColorCodes('&', prefix);
+            }
+        }
+        return "";
+    }
 }
