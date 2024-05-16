@@ -1,6 +1,5 @@
 # User-specific stuff
 .idea/
-
 *.iml
 *.ipr
 *.iws
@@ -111,3 +110,5 @@ buildNumber.properties
 
 # Common working directory
 run/
+
+/server/

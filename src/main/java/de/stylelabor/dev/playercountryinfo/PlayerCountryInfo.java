@@ -1,146 +1,91 @@
 package de.stylelabor.dev.playercountryinfo;
 
-import me.clip.placeholderapi.expansion.PlaceholderExpansion;
-import org.bukkit.configuration.InvalidConfigurationException;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-@SuppressWarnings("unused")
-public final class PlayerCountryInfo extends JavaPlugin {
+public final class PlayerCountryInfo extends JavaPlugin implements Listener {
 
-    private File playerFile;
-    private FileConfiguration playerConfig;
     private static final Logger LOGGER = Logger.getLogger(PlayerCountryInfo.class.getName());
+    private final Map<String, String> playerCountryCodes = new HashMap<>();
 
     @Override
     public void onEnable() {
-        loadPlayerFile();
-        new CountryPlaceholder(this).register();
+        Bukkit.getPluginManager().registerEvents(this, this);
     }
 
-    @Override
-    public void onDisable() {
-        // Plugin shutdown logic
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        Player player = event.getPlayer();
+        String countryCode = getCountryCode(player);
+        if (countryCode != null) {
+            playerCountryCodes.put(player.getName(), countryCode);
+            player.setPlayerListName(player.getName() + " (" + countryCode + ")");
+        }
     }
 
-    public void loadPlayerFile() {
-        playerFile = new File(getDataFolder(), "players.yml");
-        if (!playerFile.exists()) {
-            if (!playerFile.getParentFile().mkdirs()) {
-                LOGGER.log(Level.SEVERE, "Could not create directories for players.yml");
-                return;
-            }
-            saveResource("players.yml", false);
+    @EventHandler
+    public void onPlayerChat(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+        String countryCode = playerCountryCodes.get(player.getName());
+        if (countryCode != null) {
+            String format = String.format("<%s (%s)> %s", player.getName(), countryCode, event.getMessage());
+            event.setFormat(format);
+        }
+    }
+
+    private String getCountryCode(Player player) {
+        // Get the player's IP address
+        String ip = Objects.requireNonNull(player.getAddress()).getAddress().getHostAddress();
+
+        // If the IP address is a loopback address, return a default country code
+        if (ip.equals("127.0.0.1")) {
+            return "LOCAL"; // Replace "US" with your desired default country code
         }
 
-        playerConfig = new YamlConfiguration();
         try {
-            playerConfig.load(playerFile);
-        } catch (IOException | InvalidConfigurationException e) {
-            LOGGER.log(Level.SEVERE, "An error occurred while loading the players.yml file", e);
-        }
-    }
+            // Use the HackerTarget API to get the country of the IP address
+            URL url = new URL("https://api.hackertarget.com/ipgeo/?q=" + ip);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.connect();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+            String line;
+            String countryName = "";
 
-    public void savePlayerInfo(Player player, String country) {
-        String uuid = player.getUniqueId().toString();
-        playerConfig.set(uuid + ".name", player.getName());
-        playerConfig.set(uuid + ".country", country);
-        try {
-            playerConfig.save(playerFile);
-        } catch (IOException e) {
-            LOGGER.log(Level.SEVERE, "Could not save player info to players.yml", e);
-        }
-    }
-
-    public static class CountryPlaceholder extends PlaceholderExpansion {
-
-        private final PlayerCountryInfo plugin;
-
-        public CountryPlaceholder(PlayerCountryInfo plugin){
-            this.plugin = plugin;
-        }
-
-        @Override
-        public boolean persist(){
-            return true;
-        }
-
-        @Override
-        public boolean canRegister(){
-            return true;
-        }
-
-        @Override
-        public @NotNull String getAuthor(){
-            return plugin.getDescription().getAuthors().toString();
-        }
-
-        @Override
-        public @NotNull String getIdentifier(){
-            return "countrycode";
-        }
-
-        @Override
-        public @NotNull String getVersion(){
-            return plugin.getDescription().getVersion();
-        }
-
-        @SuppressWarnings("ExtractMethodRecommender")
-        @Override
-        public String onPlaceholderRequest(Player player, @NotNull String identifier){
-
-            if(player == null){
-                return "";
-            }
-
-            // Get the player's IP address
-            String ip = Objects.requireNonNull(player.getAddress()).getAddress().getHostAddress();
-
-            try {
-                // Use the HackerTarget API to get the country of the IP address
-                URL url = new URL("https://api.hackertarget.com/ipgeo/?q=" + ip);
-                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.connect();
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                String line;
-                String countryName = "";
-
-                while ((line = reader.readLine()) != null) {
-                    if (line.contains("Country:")) {
-                        countryName = line.split(":")[1].trim();
-                        break;
-                    }
+            while ((line = reader.readLine()) != null) {
+                if (line.contains("Country:")) {
+                    countryName = line.split(":")[1].trim();
+                    break;
                 }
-
-                // Convert the country name to its corresponding country code
-                String countryCode = new Locale("", countryName).getCountry();
-
-                // Save the player's information
-                plugin.savePlayerInfo(player, countryCode);
-
-                return countryCode;
-
-            } catch (IOException e) {
-                LOGGER.log(Level.SEVERE, "An error occurred while getting the country of the IP address", e);
             }
 
-            return null;
+            // Convert the country name to its corresponding country code
+            String countryCode = new Locale("", countryName).getCountry();
+            LOGGER.log(Level.INFO, "Retrieved country code for " + player.getName() + ": " + countryCode);
+            return countryCode;
+
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "An error occurred while getting the country of the IP address", e);
         }
+
+        return null;
     }
+
 }
