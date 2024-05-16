@@ -1,3 +1,5 @@
-chatFormat: "%prefix%%name% [%countryCode%] » %message%"
-tabFormat: "%prefix%%name% [%countryCode%]"
+# config.yml
+customJoinFormat: "[%countryCode%] %prefix%%name% %message%"
+chatFormat: "[%countryCode%] %prefix%%name% » %message%"
+tabFormat: "[%countryCode%] %prefix%%name% "
 defaultCountryCode: "LOCAL" #for localhost-ip
