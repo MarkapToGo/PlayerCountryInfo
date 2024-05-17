@@ -6,3 +6,5 @@ commands:
   pci-reload:
     description: Reloads the PlayerCountryInfo plugin
     usage: /<command>
+
+# FÜR IRGENDWEN FINDET ER KEINEN COUNTRY CODE!

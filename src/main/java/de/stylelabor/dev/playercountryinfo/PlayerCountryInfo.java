@@ -11,6 +11,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -70,6 +72,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
     private static final Logger LOGGER = Logger.getLogger(PlayerCountryInfo.class.getName());
     private final Map<String, String> playerCountryCodes = new HashMap<>();
     private final Map<String, String> countryCodes = new HashMap<>();
+    private FileConfiguration playersConfig;
 
     public Map<String, String> getPlayerCountryCodes() {
         return this.playerCountryCodes;
@@ -93,6 +96,22 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         // Initialize bStats
         int pluginId = 21948; // Replace with your plugin's bStats ID
         Metrics metrics = new Metrics(this, pluginId);
+
+        // Create the players.yml file if it doesn't exist
+        File playersFile = new File(getDataFolder(), "players.yml");
+        if (!playersFile.exists()) {
+            try {
+                boolean fileCreated = playersFile.createNewFile();
+                if (!fileCreated) {
+                    LOGGER.log(Level.WARNING, "players.yml already exists");
+                }
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Could not create players.yml file", e);
+            }
+        }
+
+        // Load the players.yml file into the playersConfig object
+        playersConfig = YamlConfiguration.loadConfiguration(playersFile);
 
         // Schedule a repeating task that updates the tab list for all online players every 5 seconds
         Bukkit.getScheduler().runTaskTimer(this, () -> {
@@ -179,6 +198,20 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                     .replace("%name%", player.getName())
                     .replace("%countryCode%", countryCode);
             player.setPlayerListName(tabFormat);
+
+            // Write the player's information to the players.yml file
+            String playerKey = player.getUniqueId().toString();
+            playersConfig.set(playerKey + ".ip", Objects.requireNonNull(player.getAddress()).getAddress().getHostAddress());
+            playersConfig.set(playerKey + ".countryCode", countryCode);
+            playersConfig.set(playerKey + ".uuid", playerKey);
+            playersConfig.set(playerKey + ".lastJoin", System.currentTimeMillis());
+
+            // Save the players.yml file
+            try {
+                playersConfig.save(new File(getDataFolder(), "players.yml"));
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Could not save players.yml file", e);
+            }
         }
     }
 
@@ -227,7 +260,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             String countryCode = countryCodes.get(countryName);
             if (countryCode == null) {
                 LOGGER.log(Level.WARNING, "No country code found for " + countryName);
-                return null;
+                return "XX"; // Return "XX" as a default country code
             }
 
             LOGGER.log(Level.INFO, "Retrieved country code for " + player.getName() + ": " + countryCode);
@@ -236,7 +269,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             LOGGER.log(Level.SEVERE, "An error occurred while getting the country of the IP address", e);
         }
 
-        return null;
+        return "XX"; // Return "XX" as a default country code if an exception occurs
     }
 
     public String getPrefix(Player player) {
