@@ -25,7 +25,9 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.sql.*;
 import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -95,6 +97,9 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         int pluginId = 21948; // Replace with your plugin's bStats ID
         Metrics metrics = new Metrics(this, pluginId);
 
+        // Initialize the database
+        this.initializeDatabase();
+
         // Create the players.yml file if it doesn't exist
         File playersFile = new File(getDataFolder(), "players.yml");
         if (!playersFile.exists()) {
@@ -131,6 +136,33 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                     }
                 }
             }, 0L, interval); // 0L is the delay before the first execution (in ticks), interval is the period (in ticks)
+        }
+    }
+
+
+    private Connection connect() {
+        // SQLite's connection string
+        String url = "jdbc:sqlite:" + getDataFolder() + "/ipCountryCodes.db";
+        Connection conn = null;
+        try {
+            conn = DriverManager.getConnection(url);
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "A database access error occurred", e);
+        }
+        return conn;
+    }
+
+    private void initializeDatabase() {
+        String sql = "CREATE TABLE IF NOT EXISTS ipCountryCodes (\n"
+                + "	ip text PRIMARY KEY,\n"
+                + "	countryCode text NOT NULL\n"
+                + ");";
+
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.executeUpdate();
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "A database access error occurred", e);
         }
     }
 
@@ -241,9 +273,29 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         // Get the player's IP address
         String ip = Objects.requireNonNull(player.getAddress()).getAddress().getHostAddress();
 
+        // Remove the port from the IP address, if present
+        if (ip.contains(":")) {
+            ip = ip.substring(0, ip.indexOf(":"));
+        }
+
         // If the IP address is a loopback address, return a default country code
         if (ip.equals("127.0.0.1")) {
             return getConfig().getString("defaultCountryCode", "LOCAL");
+        }
+
+        // Check the database first
+        String sql = "SELECT countryCode FROM ipCountryCodes WHERE ip = ?";
+        try (Connection conn = this.connect();
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setString(1, ip);
+            ResultSet rs = pstmt.executeQuery();
+
+            // If the IP address is in the database, return the country code
+            if (rs.next()) {
+                return rs.getString("countryCode");
+            }
+        } catch (SQLException e) {
+            LOGGER.log(Level.SEVERE, "A database access error occurred", e);
         }
 
         try {
@@ -256,21 +308,43 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             String line;
             String countryName = "";
 
+            StringBuilder response = new StringBuilder();
             while ((line = reader.readLine()) != null) {
+                response.append(line).append("\n");
                 if (line.contains("Country:")) {
                     countryName = line.split(":")[1].trim();
                     break;
                 }
             }
 
+            // Log the IP address and the response from the IP lookup service
+            if (getConfig().getBoolean("enableDebugMessages", true)) {
+                LOGGER.log(Level.INFO, "IP address: " + ip);
+                LOGGER.log(Level.INFO, "Response from IP lookup service: " + response);
+            }
+
             // Look up the country code in the map
             String countryCode = countryCodes.get(countryName);
             if (countryCode == null) {
-                LOGGER.log(Level.WARNING, "No country code found for " + countryName);
-                return "XX"; // Return "XX" as a default country code
+                LOGGER.log(Level.WARNING, "No country code found for " + countryName + " for player " + player.getName());
+                countryCode = "XX"; // Use "XX" as a default country code
             }
 
-            LOGGER.log(Level.INFO, "Retrieved country code for " + player.getName() + ": " + countryCode);
+            // Add the country code to the database
+            sql = "INSERT INTO ipCountryCodes(ip, countryCode) VALUES(?, ?)";
+            try (Connection conn = this.connect();
+                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
+                pstmt.setString(1, ip);
+                pstmt.setString(2, countryCode);
+                pstmt.executeUpdate();
+            } catch (SQLException e) {
+                LOGGER.log(Level.SEVERE, "A database access error occurred", e);
+            }
+
+            if (getConfig().getBoolean("enableDebugMessages", true)) {
+                LOGGER.log(Level.INFO, "Retrieved country code for " + player.getName() + ": " + countryCode);
+            }
+
             return countryCode;
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "An error occurred while getting the country of the IP address", e);
