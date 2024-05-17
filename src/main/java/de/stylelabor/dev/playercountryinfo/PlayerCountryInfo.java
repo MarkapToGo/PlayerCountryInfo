@@ -16,6 +16,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -25,13 +26,10 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.sql.*;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 
 class ReloadCommand implements CommandExecutor {
 
@@ -97,9 +95,6 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         int pluginId = 21948; // Replace with your plugin's bStats ID
         Metrics metrics = new Metrics(this, pluginId);
 
-        // Initialize the database
-        this.initializeDatabase();
-
         // Create the players.yml file if it doesn't exist
         File playersFile = new File(getDataFolder(), "players.yml");
         if (!playersFile.exists()) {
@@ -127,11 +122,15 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                         String prefix = getPrefix(player);
                         String prefixWithSpace = prefix.isEmpty() ? "" : prefix + " "; // Add space to prefix if it's not empty
 
+                        // Get the player's death count
+                        int deaths = getDeaths(player);
+
                         // Set the player list name (displayed in the tab list)
-                        String tabFormat = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%]");
+                        String tabFormat = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%] %deaths%");
                         tabFormat = tabFormat.replace("%prefix%", prefixWithSpace)
                                 .replace("%name%", player.getName())
-                                .replace("%countryCode%", countryCode);
+                                .replace("%countryCode%", countryCode)
+                                .replace("%deaths%", String.valueOf(deaths)); // Replace the %deaths% placeholder
                         player.setPlayerListName(tabFormat);
                     }
                 }
@@ -139,30 +138,36 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         }
     }
 
+    public int getDeaths(Player player) {
+        String uuid = player.getUniqueId().toString();
 
-    private Connection connect() {
-        // SQLite's connection string
-        String url = "jdbc:sqlite:" + getDataFolder() + "/ipCountryCodes.db";
-        Connection conn = null;
-        try {
-            conn = DriverManager.getConnection(url);
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "A database access error occurred", e);
+        // Check the players.yml file first
+        if (playersConfig.contains(uuid + ".deaths")) {
+            return playersConfig.getInt(uuid + ".deaths");
         }
-        return conn;
+
+        return 0; // Return 0 if the player is not in the players.yml file
     }
 
-    private void initializeDatabase() {
-        String sql = "CREATE TABLE IF NOT EXISTS ipCountryCodes (\n"
-                + "	ip text PRIMARY KEY,\n"
-                + "	countryCode text NOT NULL\n"
-                + ");";
+    @EventHandler
+    public void onPlayerDeath(PlayerDeathEvent event) {
+        Player player = event.getEntity();
+        String uuid = player.getUniqueId().toString();
 
-        try (Connection conn = this.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.executeUpdate();
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "A database access error occurred", e);
+        // Get the current death count from the players.yml file
+        int deaths = getDeaths(player);
+
+        // Increment the death count
+        deaths++;
+
+        // Update the death count in the players.yml file
+        playersConfig.set(uuid + ".deaths", deaths);
+
+        // Save the players.yml file
+        try {
+            playersConfig.save(new File(getDataFolder(), "players.yml"));
+        } catch (IOException e) {
+            LOGGER.log(Level.SEVERE, "Could not save players.yml file", e);
         }
     }
 
@@ -170,6 +175,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         Player player = event.getPlayer();
         String countryCode = playerCountryCodes.get(player.getName());
+
         if (countryCode != null) {
             String prefix = getPrefix(player);
             String strippedPrefix = ChatColor.stripColor(prefix); // Strip color codes from the prefix
@@ -226,11 +232,16 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             event.setJoinMessage(null); // Disable the default join message
             Bukkit.broadcastMessage(ChatColor.YELLOW + format); // Send the custom join message
 
+            // Get the player's death count
+            int deaths = getDeaths(player);
+            System.out.println("Player " + player.getName() + " has " + deaths + " deaths."); // Debug message
+
             // Set the player list name (displayed in the tab list)
-            String tabFormat = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%]");
+            String tabFormat = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%] %deaths%");
             tabFormat = tabFormat.replace("%prefix%", prefixWithSpace)
                     .replace("%name%", player.getName())
-                    .replace("%countryCode%", countryCode);
+                    .replace("%countryCode%", countryCode)
+                    .replace("%deaths%", String.valueOf(deaths)); // Replace the %deaths% placeholder
             player.setPlayerListName(tabFormat);
 
             // Write the player's information to the players.yml file
@@ -270,7 +281,15 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
     }
 
     public String getCountryCode(Player player) {
-        // Get the player's IP address
+        // Get the player's UUID
+        String uuid = player.getUniqueId().toString();
+
+        // Check the players.yml file first
+        if (playersConfig.contains(uuid + ".countryCode")) {
+            return playersConfig.getString(uuid + ".countryCode");
+        }
+
+        // If the country code is not in the players.yml file, use the HackerTarget API to get the country of the IP address
         String ip = Objects.requireNonNull(player.getAddress()).getAddress().getHostAddress();
 
         // Remove the port from the IP address, if present
@@ -283,23 +302,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             return getConfig().getString("defaultCountryCode", "LOCAL");
         }
 
-        // Check the database first
-        String sql = "SELECT countryCode FROM ipCountryCodes WHERE ip = ?";
-        try (Connection conn = this.connect();
-             PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            pstmt.setString(1, ip);
-            ResultSet rs = pstmt.executeQuery();
-
-            // If the IP address is in the database, return the country code
-            if (rs.next()) {
-                return rs.getString("countryCode");
-            }
-        } catch (SQLException e) {
-            LOGGER.log(Level.SEVERE, "A database access error occurred", e);
-        }
-
         try {
-            // Use the HackerTarget API to get the country of the IP address
             URL url = new URL("https://api.hackertarget.com/ipgeo/?q=" + ip);
             HttpURLConnection connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
@@ -308,19 +311,11 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             String line;
             String countryName = "";
 
-            StringBuilder response = new StringBuilder();
             while ((line = reader.readLine()) != null) {
-                response.append(line).append("\n");
                 if (line.contains("Country:")) {
                     countryName = line.split(":")[1].trim();
                     break;
                 }
-            }
-
-            // Log the IP address and the response from the IP lookup service
-            if (getConfig().getBoolean("enableDebugMessages", true)) {
-                LOGGER.log(Level.INFO, "IP address: " + ip);
-                LOGGER.log(Level.INFO, "Response from IP lookup service: " + response);
             }
 
             // Look up the country code in the map
@@ -330,15 +325,12 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                 countryCode = "XX"; // Use "XX" as a default country code
             }
 
-            // Add the country code to the database
-            sql = "INSERT INTO ipCountryCodes(ip, countryCode) VALUES(?, ?)";
-            try (Connection conn = this.connect();
-                 PreparedStatement pstmt = conn.prepareStatement(sql)) {
-                pstmt.setString(1, ip);
-                pstmt.setString(2, countryCode);
-                pstmt.executeUpdate();
-            } catch (SQLException e) {
-                LOGGER.log(Level.SEVERE, "A database access error occurred", e);
+            // Add the country code to the players.yml file
+            playersConfig.set(uuid + ".countryCode", countryCode);
+            try {
+                playersConfig.save(new File(getDataFolder(), "players.yml"));
+            } catch (IOException e) {
+                LOGGER.log(Level.SEVERE, "Could not save players.yml file", e);
             }
 
             if (getConfig().getBoolean("enableDebugMessages", true)) {
