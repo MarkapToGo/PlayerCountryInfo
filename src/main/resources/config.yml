@@ -3,3 +3,5 @@ customJoinFormat: "[%countryCode%] %prefix%%name% %message%"
 chatFormat: "[%countryCode%] %prefix%%name% » %message%"
 tabFormat: "[%countryCode%] %prefix%%name% "
 defaultCountryCode: "LOCAL" #for localhost-ip
+tabListUpdateInterval: 5 # Time in seconds to update the tab list
+enableTabListUpdate: true # Enable or disable the automatic tab list update

@@ -25,10 +25,8 @@ import org.jetbrains.annotations.NotNull;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -113,23 +111,27 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         // Load the players.yml file into the playersConfig object
         playersConfig = YamlConfiguration.loadConfiguration(playersFile);
 
-        // Schedule a repeating task that updates the tab list for all online players every 5 seconds
-        Bukkit.getScheduler().runTaskTimer(this, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                String countryCode = getCountryCode(player);
-                if (countryCode != null) {
-                    String prefix = getPrefix(player);
-                    String prefixWithSpace = prefix.isEmpty() ? "" : prefix + " "; // Add space to prefix if it's not empty
+        // Check if the automatic tab list update is enabled
+        if (getConfig().getBoolean("enableTabListUpdate", true)) {
+            // Schedule a repeating task that updates the tab list for all online players
+            long interval = getConfig().getLong("tabListUpdateInterval", 5) * 20; // Convert seconds to ticks
+            Bukkit.getScheduler().runTaskTimer(this, () -> {
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    String countryCode = getCountryCode(player);
+                    if (countryCode != null) {
+                        String prefix = getPrefix(player);
+                        String prefixWithSpace = prefix.isEmpty() ? "" : prefix + " "; // Add space to prefix if it's not empty
 
-                    // Set the player list name (displayed in the tab list)
-                    String tabFormat = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%]");
-                    tabFormat = tabFormat.replace("%prefix%", prefixWithSpace)
-                            .replace("%name%", player.getName())
-                            .replace("%countryCode%", countryCode);
-                    player.setPlayerListName(tabFormat);
+                        // Set the player list name (displayed in the tab list)
+                        String tabFormat = getConfig().getString("tabFormat", "%prefix%%name% [%countryCode%]");
+                        tabFormat = tabFormat.replace("%prefix%", prefixWithSpace)
+                                .replace("%name%", player.getName())
+                                .replace("%countryCode%", countryCode);
+                        player.setPlayerListName(tabFormat);
+                    }
                 }
-            }
-        }, 0L, 600); // 0L is the delay before the first execution (in ticks), 100L is the period (in ticks)
+            }, 0L, interval); // 0L is the delay before the first execution (in ticks), interval is the period (in ticks)
+        }
     }
 
     @EventHandler
@@ -204,7 +206,12 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             playersConfig.set(playerKey + ".ip", Objects.requireNonNull(player.getAddress()).getAddress().getHostAddress());
             playersConfig.set(playerKey + ".countryCode", countryCode);
             playersConfig.set(playerKey + ".uuid", playerKey);
-            playersConfig.set(playerKey + ".lastJoin", System.currentTimeMillis());
+            playersConfig.set(playerKey + ".name", player.getName()); // Save the player's name
+
+            // Format the current date and time as a string
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+            String lastJoin = dateFormat.format(new Date());
+            playersConfig.set(playerKey + ".lastJoin", lastJoin);
 
             // Save the players.yml file
             try {
