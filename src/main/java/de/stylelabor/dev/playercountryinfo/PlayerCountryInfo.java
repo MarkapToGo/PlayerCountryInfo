@@ -2,6 +2,7 @@ package de.stylelabor.dev.playercountryinfo;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import me.clip.placeholderapi.PlaceholderAPI;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
@@ -142,6 +143,10 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                         String header = String.join("\n", headerLines);
                         String footer = String.join("\n", footerLines);
 
+                        // Replace placeholders with PlaceholderAPI
+                        header = PlaceholderAPI.setPlaceholders(player, header);
+                        footer = PlaceholderAPI.setPlaceholders(player, footer);
+
                         // Set the header and footer
                         player.setPlayerListHeader(header);
                         player.setPlayerListFooter(footer);
@@ -199,6 +204,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                     .replace("%name%", player.getName())
                     .replace("%countryCode%", countryCode)
                     .replace("%message%", "has left the game"); // Change the message to "has left the game"
+            format = PlaceholderAPI.setPlaceholders(player, format); // Replace placeholders with PlaceholderAPI
             event.setQuitMessage(ChatColor.YELLOW + format); // Set the custom quit message
         }
     }
@@ -242,6 +248,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                     .replace("%name%", player.getName())
                     .replace("%countryCode%", countryCode)
                     .replace("%message%", "has joined the game");
+            format = PlaceholderAPI.setPlaceholders(player, format); // Replace placeholders with PlaceholderAPI
             event.setJoinMessage(null); // Disable the default join message
             Bukkit.broadcastMessage(ChatColor.YELLOW + format); // Send the custom join message
 
@@ -283,6 +290,10 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             // Join the lines with newline characters to create a multi-line string
             String header = String.join("\n", headerLines);
             String footer = String.join("\n", footerLines);
+
+            // Replace placeholders with PlaceholderAPI
+            header = PlaceholderAPI.setPlaceholders(player, header);
+            footer = PlaceholderAPI.setPlaceholders(player, footer);
 
             // Set the header and footer
             player.setPlayerListHeader(header);
