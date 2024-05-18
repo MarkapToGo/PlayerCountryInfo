@@ -65,6 +65,7 @@ class ReloadCommand implements CommandExecutor {
     }
 }
 
+@SuppressWarnings("DuplicatedCode")
 public final class PlayerCountryInfo extends JavaPlugin implements Listener {
 
     private static final Logger LOGGER = Logger.getLogger("PlayerCountryInfo");
@@ -92,7 +93,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         loadCountryCodes();
 
         // Initialize bStats
-        int pluginId = 21948; // Replace with your plugin's bStats ID
+        int pluginId = 21948;
         Metrics metrics = new Metrics(this, pluginId);
 
         // Create the players.yml file if it doesn't exist
@@ -132,6 +133,18 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                                 .replace("%countryCode%", countryCode)
                                 .replace("%deaths%", String.valueOf(deaths)); // Replace the %deaths% placeholder
                         player.setPlayerListName(tabFormat);
+
+                        // Get the header and footer from the configuration
+                        List<String> headerLines = getConfig().getStringList("header");
+                        List<String> footerLines = getConfig().getStringList("footer");
+
+                        // Join the lines with newline characters to create a multi-line string
+                        String header = String.join("\n", headerLines);
+                        String footer = String.join("\n", footerLines);
+
+                        // Set the header and footer
+                        player.setPlayerListHeader(header);
+                        player.setPlayerListFooter(footer);
                     }
                 }
             }, 0L, interval); // 0L is the delay before the first execution (in ticks), interval is the period (in ticks)
@@ -262,6 +275,18 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             } catch (IOException e) {
                 LOGGER.log(Level.SEVERE, "Could not save players.yml file", e);
             }
+
+            // Get the header and footer from the configuration
+            List<String> headerLines = getConfig().getStringList("header");
+            List<String> footerLines = getConfig().getStringList("footer");
+
+            // Join the lines with newline characters to create a multi-line string
+            String header = String.join("\n", headerLines);
+            String footer = String.join("\n", footerLines);
+
+            // Set the header and footer
+            player.setPlayerListHeader(header);
+            player.setPlayerListFooter(footer);
         }
     }
 
