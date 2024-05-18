@@ -2,6 +2,7 @@ name: PlayerCountryInfo
 version: '${project.version}'
 main: de.stylelabor.dev.playercountryinfo.PlayerCountryInfo
 api-version: '1.20'
+softdepend: [LuckPerms]
 commands:
   pci-reload:
     description: Reloads the PlayerCountryInfo plugin

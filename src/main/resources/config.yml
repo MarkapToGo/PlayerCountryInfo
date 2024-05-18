@@ -1,7 +1,7 @@
 # config.yml
 customJoinFormat: "[%countryCode%] %prefix%%name% %message%"
 chatFormat: "[%countryCode%] %prefix%%name% » %message%"
-tabFormat: "[%countryCode%] %prefix%%name% "
+tabFormat: "[%countryCode%] %prefix%%name% "    #You can try to use %deaths% as a placeholder but it may not work
 defaultCountryCode: "LOCAL" #for localhost-ip
 tabListUpdateInterval: 5 # Time in seconds to update the tab list
 enableTabListUpdate: true # Enable or disable the automatic tab list update
