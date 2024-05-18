@@ -6,6 +6,7 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.LuckPermsProvider;
 import net.luckperms.api.model.user.User;
+import net.luckperms.api.query.QueryOptions;
 import org.bstats.bukkit.Metrics;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -78,7 +79,7 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         return this.playerCountryCodes;
     }
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "ExtractMethodRecommender"})
     @Override
     public void onEnable() {
         Bukkit.getPluginManager().registerEvents(this, this);
@@ -118,7 +119,27 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             // Schedule a repeating task that updates the tab list for all online players
             long interval = getConfig().getLong("tabListUpdateInterval", 5) * 20; // Convert seconds to ticks
             Bukkit.getScheduler().runTaskTimer(this, () -> {
-                for (Player player : Bukkit.getOnlinePlayers()) {
+                // Get the LuckPerms API
+                LuckPerms api = LuckPermsProvider.get();
+
+                // Get a list of online players
+                List<Player> players = new ArrayList<>(Bukkit.getOnlinePlayers());
+
+                // Sort the players by the weight of their primary group
+                players.sort((player1, player2) -> {
+                    User user1 = api.getUserManager().getUser(player1.getUniqueId());
+                    User user2 = api.getUserManager().getUser(player2.getUniqueId());
+                    if (user1 == null || user2 == null) {
+                        return 0; // If either user is null, consider them equal
+                    }
+                    String weight1Str = user1.getCachedData().getMetaData(QueryOptions.defaultContextualOptions()).getMetaValue("weight");
+                    String weight2Str = user2.getCachedData().getMetaData(QueryOptions.defaultContextualOptions()).getMetaValue("weight");
+                    int weight1 = weight1Str != null ? Integer.parseInt(weight1Str) : 0;
+                    int weight2 = weight2Str != null ? Integer.parseInt(weight2Str) : 0;
+                    return Integer.compare(weight2, weight1); // Sort in descending order
+                });
+
+                for (Player player : players) {
                     String countryCode = getCountryCode(player);
                     if (countryCode != null) {
                         String prefix = getPrefix(player);
@@ -139,9 +160,9 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
                         List<String> headerLines = getConfig().getStringList("header");
                         List<String> footerLines = getConfig().getStringList("footer");
 
-                        // Join the lines with newline characters to create a multi-line string
-                        String header = String.join("\n", headerLines);
-                        String footer = String.join("\n", footerLines);
+                        // Translate color codes and join the lines with newline characters to create a multi-line string
+                        String header = ChatColor.translateAlternateColorCodes('&', String.join("\n", headerLines));
+                        String footer = ChatColor.translateAlternateColorCodes('&', String.join("\n", footerLines));
 
                         // Replace placeholders with PlaceholderAPI
                         header = PlaceholderAPI.setPlaceholders(player, header);
@@ -287,9 +308,9 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
             List<String> headerLines = getConfig().getStringList("header");
             List<String> footerLines = getConfig().getStringList("footer");
 
-            // Join the lines with newline characters to create a multi-line string
-            String header = String.join("\n", headerLines);
-            String footer = String.join("\n", footerLines);
+            // Translate color codes and join the lines with newline characters to create a multi-line string
+            String header = ChatColor.translateAlternateColorCodes('&', String.join("\n", headerLines));
+            String footer = ChatColor.translateAlternateColorCodes('&', String.join("\n", footerLines));
 
             // Replace placeholders with PlaceholderAPI
             header = PlaceholderAPI.setPlaceholders(player, header);

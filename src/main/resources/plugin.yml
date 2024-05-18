@@ -2,6 +2,7 @@ name: PlayerCountryInfo
 version: '${project.version}'
 main: de.stylelabor.dev.playercountryinfo.PlayerCountryInfo
 api-version: '1.20'
+author: MarkapStyle
 softdepend: [LuckPerms, PlaceholderAPI]
 commands:
   pci-reload:
