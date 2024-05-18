@@ -67,7 +67,7 @@ class ReloadCommand implements CommandExecutor {
 
 public final class PlayerCountryInfo extends JavaPlugin implements Listener {
 
-    private static final Logger LOGGER = Logger.getLogger(PlayerCountryInfo.class.getName());
+    private static final Logger LOGGER = Logger.getLogger("PlayerCountryInfo");
     private final Map<String, String> playerCountryCodes = new HashMap<>();
     private final Map<String, String> countryCodes = new HashMap<>();
     private FileConfiguration playersConfig;
