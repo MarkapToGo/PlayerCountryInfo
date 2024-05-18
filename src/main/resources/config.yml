@@ -1,12 +1,14 @@
 # config.yml
+enableDebugMessages: true # Enable or disable debug messages
+
 customJoinFormat: "[%countryCode%] %prefix%%name% %message%"
 chatFormat: "[%countryCode%] %prefix%%name% » %message%"
 tabFormat: "[%countryCode%] %prefix%%name% "    #You can try to use %deaths% as a placeholder but it may not work
-defaultCountryCode: "LOCAL" #for localhost-ip
-tabListUpdateInterval: 5 # Time in seconds to update the tab list
-enableTabListUpdate: true # Enable or disable the automatic tab list update
-enableDebugMessages: true # Enable or disable debug messages
 
+defaultCountryCode: "LOCAL" #for localhost-ip
+
+tabListUpdateInterval: 5 # Time in seconds to update the tab list (When using something like LOCALTIME you need to set it to 1s)
+enableTabListUpdate: true # Enable or disable the automatic tab list update
 header:
   - "Line 1 of the header"
   - "Line 2 of the header"
