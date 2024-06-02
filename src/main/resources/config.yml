@@ -10,8 +10,8 @@ defaultCountryCode: "LOCAL" #for localhost-ip
 tabListUpdateInterval: 5 # Time in seconds to update the tab list (When using something like LOCALTIME you need to set it to 1s)
 enableTabListUpdate: true # Enable or disable the automatic tab list update
 header:
-  - "Line 1 of the header"
-  - "Line 2 of the header"
+  - "line1"
+  - "line2"
 footer:
-  - "Line 1 of the footer"
-  - "Line 2 of the footer"
+  - "line1"
+  - "line2"

@@ -402,6 +402,8 @@ public final class PlayerCountryInfo extends JavaPlugin implements Listener {
         return "XX"; // Return "XX" as a default country code if an exception occurs
     }
 
+    //Test
+
     public String getPrefix(Player player) {
         LuckPerms api = LuckPermsProvider.get();
         User user = api.getUserManager().getUser(player.getUniqueId());
